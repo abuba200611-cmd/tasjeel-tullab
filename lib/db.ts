@@ -75,6 +75,18 @@ export async function findStudentByUsername(
   return { id: row.id, username: row.username, passwordHash: row.password_hash, name: row.name };
 }
 
+/**
+ * دخول جوجل: يجد طالباً ببريده أو ينشئه فوراً بكلمة مرور عشوائية لن
+ * يستخدمها أبداً (دخوله دائماً عبر جوجل). البريد نفسه عمود username.
+ */
+export async function findOrCreateStudentByEmail(email: string, name: string): Promise<number> {
+  const existing = await findStudentByUsername(email);
+  if (existing) return existing.id;
+
+  const randomPasswordHash = randomBytes(32).toString("hex");
+  return createStudent(email, randomPasswordHash, name);
+}
+
 export async function findStudentById(id: number): Promise<Student | null> {
   const rows = await db().sql`
     SELECT id, username, name, created_at FROM students WHERE id = ${id}
