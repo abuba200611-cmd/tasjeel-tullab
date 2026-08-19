@@ -149,6 +149,111 @@ export async function deleteWard(studentId: number, id: number): Promise<boolean
   return rows.length > 0;
 }
 
+// ————— ربط طالب بطالب آخر للتسميع المتبادل —————
+
+export type PeerLinkRow = {
+  id: number;
+  peerId: number;
+  peerName: string;
+  peerUsername: string;
+  status: "pending" | "accepted";
+  createdAt: string;
+};
+
+/** يبعث طلب ربط لطالب آخر عبر بريده — يرمي رسالة عربية واضحة عند أي مانع */
+export async function requestPeerLink(requesterId: number, targetEmail: string): Promise<void> {
+  const target = await findStudentByUsername(targetEmail);
+  if (!target) throw new Error("ما فيه طالب مسجّل بهذا البريد");
+  if (target.id === requesterId) throw new Error("ما تقدر تربط نفسك بنفسك");
+
+  const existing = await db().sql`
+    SELECT status FROM peer_links
+    WHERE LEAST(requester_id, target_id) = LEAST(${requesterId}::int, ${target.id}::int)
+      AND GREATEST(requester_id, target_id) = GREATEST(${requesterId}::int, ${target.id}::int)
+  `;
+  if (existing[0]) {
+    throw new Error(existing[0].status === "accepted" ? "أنتما مرتبطان أصلاً" : "فيه طلب ربط معلّق بينكما أصلاً");
+  }
+
+  await db().sql`
+    INSERT INTO peer_links (requester_id, target_id, status, created_at)
+    VALUES (${requesterId}, ${target.id}, 'pending', ${new Date().toISOString()})
+  `;
+}
+
+/** طلبات واردة (تنتظر ردّي)، طلبات صادرة (تنتظر ردّهم)، وروابط مقبولة — لعرضها بصفحة الطالب */
+export async function listPeerLinks(
+  studentId: number,
+): Promise<{ incoming: PeerLinkRow[]; outgoing: PeerLinkRow[]; accepted: PeerLinkRow[] }> {
+  const rows = await db().sql`
+    SELECT pl.id, pl.status, pl.created_at, pl.requester_id, pl.target_id,
+           s.id AS peer_id, s.name AS peer_name, s.username AS peer_username
+    FROM peer_links pl
+    JOIN students s ON s.id = CASE WHEN pl.requester_id = ${studentId} THEN pl.target_id ELSE pl.requester_id END
+    WHERE pl.requester_id = ${studentId} OR pl.target_id = ${studentId}
+    ORDER BY pl.created_at DESC
+  `;
+
+  const incoming: PeerLinkRow[] = [];
+  const outgoing: PeerLinkRow[] = [];
+  const accepted: PeerLinkRow[] = [];
+
+  for (const row of rows) {
+    const entry: PeerLinkRow = {
+      id: row.id as number,
+      peerId: row.peer_id as number,
+      peerName: row.peer_name as string,
+      peerUsername: row.peer_username as string,
+      status: row.status as "pending" | "accepted",
+      createdAt: row.created_at as string,
+    };
+    if (entry.status === "accepted") accepted.push(entry);
+    else if ((row.target_id as number) === studentId) incoming.push(entry);
+    else outgoing.push(entry);
+  }
+
+  return { incoming, outgoing, accepted };
+}
+
+/** يقبل أو يرفض طلباً وارداً — لازم يكون الطالب الحالي هو الطرف المستهدَف */
+export async function respondPeerLink(studentId: number, linkId: number, accept: boolean): Promise<boolean> {
+  if (!accept) {
+    const rows = await db().sql`
+      DELETE FROM peer_links WHERE id = ${linkId} AND target_id = ${studentId} AND status = 'pending'
+      RETURNING id
+    `;
+    return rows.length > 0;
+  }
+  const rows = await db().sql`
+    UPDATE peer_links SET status = 'accepted', responded_at = ${new Date().toISOString()}
+    WHERE id = ${linkId} AND target_id = ${studentId} AND status = 'pending'
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+/** يفكّ ربطاً مقبولاً أو يلغي طلباً صادراً — أي طرف من الاثنين يقدر */
+export async function removePeerLink(studentId: number, linkId: number): Promise<boolean> {
+  const rows = await db().sql`
+    DELETE FROM peer_links
+    WHERE id = ${linkId} AND (requester_id = ${studentId} OR target_id = ${studentId})
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+/** سجلّ ورد طالب آخر كاملاً — يرمي لو ما فيه ربط مقبول بين الاثنين */
+export async function listWardsOfPeer(studentId: number, peerId: number): Promise<WardLog[]> {
+  const rows = await db().sql`
+    SELECT id FROM peer_links
+    WHERE status = 'accepted'
+      AND LEAST(requester_id, target_id) = LEAST(${studentId}::int, ${peerId}::int)
+      AND GREATEST(requester_id, target_id) = GREATEST(${studentId}::int, ${peerId}::int)
+  `;
+  if (!rows[0]) throw new Error("ما فيه ربط مقبول بينكما");
+  return listWards(peerId);
+}
+
 // ————— ملخّص للربط مع نظام المعلّم —————
 
 /**

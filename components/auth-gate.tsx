@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import Link from "next/link";
 import { Button, Card } from "./ui";
 import type { Student } from "@/lib/types";
 
@@ -60,7 +61,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     <StudentContext.Provider value={student}>
       <header className="border-b border-border bg-surface">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4 px-4 py-3">
-          <span className="font-naskh text-lg font-bold text-primary">ورد الطالب</span>
+          <div className="flex items-center gap-4">
+            <Link href="/" className="font-naskh text-lg font-bold text-primary">
+              ورد الطالب
+            </Link>
+            <Link
+              href="/peers"
+              className="text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
+            >
+              زملاء المراجعة
+            </Link>
+          </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">{student.name}</span>
             <Button variant="ghost" onClick={logout}>
