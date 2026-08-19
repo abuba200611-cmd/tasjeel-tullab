@@ -151,11 +151,12 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (student: Student) =
           )}
 
           <label className="block text-sm">
-            <span className="text-xs text-muted-foreground">اسم المستخدم</span>
+            <span className="text-xs text-muted-foreground">البريد الإلكتروني</span>
             <input
+              type="email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
+              autoComplete="email"
               required
               className={field}
             />

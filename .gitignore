@@ -25,3 +25,5 @@ next-env.d.ts
 # قاعدة بيانات SQLite المحلية — بيانات طلاب حقيقية، لا تُرفع
 /tullab.db
 /tullab.db-*
+
+.vercel
