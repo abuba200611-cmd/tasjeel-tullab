@@ -25,6 +25,7 @@ function WardDashboard() {
   const student = useStudent();
   const [wards, setWards] = useState<WardLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<WardLog | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -48,7 +49,15 @@ function WardDashboard() {
         <p className="text-sm text-muted-foreground">سجّل ورد اليوم من الحفظ والمراجعة.</p>
       </div>
 
-      <WardForm onSaved={refresh} />
+      <WardForm
+        key={editing?.id ?? "new"}
+        editing={editing}
+        onSaved={async () => {
+          setEditing(null);
+          await refresh();
+        }}
+        onCancelEdit={() => setEditing(null)}
+      />
 
       <section>
         <h2 className="mb-3 font-naskh text-lg font-bold">سجلّي</h2>
@@ -59,7 +68,7 @@ function WardDashboard() {
         ) : (
           <ul className="space-y-2">
             {wards.map((ward) => (
-              <WardRow key={ward.id} ward={ward} onDeleted={refresh} />
+              <WardRow key={ward.id} ward={ward} onDeleted={refresh} onEdit={() => setEditing(ward)} />
             ))}
           </ul>
         )}
@@ -215,13 +224,21 @@ function ReviewField({
   );
 }
 
-function WardForm({ onSaved }: { onSaved: () => Promise<void> }) {
-  const [date, setDate] = useState(todayISO);
-  const [hifzSurah, setHifzSurah] = useState("");
-  const [hifzPages, setHifzPages] = useState("");
-  const [reviewSurahs, setReviewSurahs] = useState<string[]>([]);
-  const [reviewPages, setReviewPages] = useState("");
-  const [note, setNote] = useState("");
+function WardForm({
+  editing,
+  onSaved,
+  onCancelEdit,
+}: {
+  editing?: WardLog | null;
+  onSaved: () => Promise<void>;
+  onCancelEdit: () => void;
+}) {
+  const [date, setDate] = useState(editing?.date ?? todayISO);
+  const [hifzSurah, setHifzSurah] = useState(editing?.hifzSurah ?? "");
+  const [hifzPages, setHifzPages] = useState(editing?.hifzPages ? String(editing.hifzPages) : "");
+  const [reviewSurahs, setReviewSurahs] = useState<string[]>(editing?.reviewSurahs ?? []);
+  const [reviewPages, setReviewPages] = useState(editing?.reviewPages ? String(editing.reviewPages) : "");
+  const [note, setNote] = useState(editing?.note ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -233,9 +250,10 @@ function WardForm({ onSaved }: { onSaved: () => Promise<void> }) {
     setSaved(false);
     try {
       const res = await fetch("/api/wards", {
-        method: "POST",
+        method: editing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(editing ? { id: editing.id } : {}),
           date,
           hifz: hifzSurah ? { surah: hifzSurah, pages: Number(hifzPages) } : null,
           review: reviewSurahs.length > 0 ? { surahs: reviewSurahs, pages: Number(reviewPages) } : null,
@@ -247,11 +265,13 @@ function WardForm({ onSaved }: { onSaved: () => Promise<void> }) {
         setError(data.error ?? "تعذّر حفظ الورد");
         return;
       }
-      setHifzSurah("");
-      setHifzPages("");
-      setReviewSurahs([]);
-      setReviewPages("");
-      setNote("");
+      if (!editing) {
+        setHifzSurah("");
+        setHifzPages("");
+        setReviewSurahs([]);
+        setReviewPages("");
+        setNote("");
+      }
       setSaved(true);
       await onSaved();
     } catch {
@@ -263,6 +283,18 @@ function WardForm({ onSaved }: { onSaved: () => Promise<void> }) {
 
   return (
     <Card className="p-4">
+      {editing && (
+        <div className="mb-3 flex items-center justify-between rounded-md bg-accent/10 px-3 py-1.5 text-xs text-accent">
+          <span>تعديل سجل {editing.date}</span>
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            className="cursor-pointer font-semibold underline hover:no-underline"
+          >
+            إلغاء التعديل
+          </button>
+        </div>
+      )}
       <form onSubmit={submit} className="space-y-3">
         <label className="block text-sm">
           <span className="text-xs text-muted-foreground">التاريخ</span>
@@ -295,20 +327,30 @@ function WardForm({ onSaved }: { onSaved: () => Promise<void> }) {
         </label>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {saved && <p className="text-sm text-success">تم تسجيل الورد ✓</p>}
+        {saved && <p className="text-sm text-success">{editing ? "تم حفظ التعديل ✓" : "تم تسجيل الورد ✓"}</p>}
 
         <Button type="submit" disabled={busy} className="w-full">
-          {busy ? "يُحفظ…" : "تسجيل الورد"}
+          {busy ? "يُحفظ…" : editing ? "حفظ التعديل" : "تسجيل الورد"}
         </Button>
-        <p className="text-center text-xs text-muted-foreground">
-          سجّل الحفظ أو المراجعة أو كليهما — لا يلزم ملء الاثنين.
-        </p>
+        {!editing && (
+          <p className="text-center text-xs text-muted-foreground">
+            سجّل الحفظ أو المراجعة أو كليهما — لا يلزم ملء الاثنين.
+          </p>
+        )}
       </form>
     </Card>
   );
 }
 
-function WardRow({ ward, onDeleted }: { ward: WardLog; onDeleted: () => Promise<void> }) {
+function WardRow({
+  ward,
+  onDeleted,
+  onEdit,
+}: {
+  ward: WardLog;
+  onDeleted: () => Promise<void>;
+  onEdit: () => void;
+}) {
   const [busy, setBusy] = useState(false);
 
   async function remove() {
@@ -334,9 +376,14 @@ function WardRow({ ward, onDeleted }: { ward: WardLog; onDeleted: () => Promise<
       <Card className="p-3">
         <div className="flex items-start justify-between gap-3">
           <span className="tabular text-sm font-semibold">{ward.date}</span>
-          <Button variant="danger" onClick={remove} disabled={busy} className="px-2 py-0.5 text-xs">
-            حذف
-          </Button>
+          <div className="flex gap-1.5">
+            <Button variant="ghost" onClick={onEdit} className="px-2 py-0.5 text-xs">
+              تعديل
+            </Button>
+            <Button variant="danger" onClick={remove} disabled={busy} className="px-2 py-0.5 text-xs">
+              حذف
+            </Button>
+          </div>
         </div>
         <div className="mt-2 space-y-1 text-sm">
           {ward.hifz && (

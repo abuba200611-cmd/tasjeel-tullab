@@ -1,5 +1,5 @@
 import { currentStudent, unauthorized } from "@/lib/auth";
-import { addWard, deleteWard, listWards } from "@/lib/db";
+import { addWard, deleteWard, listWards, updateWard } from "@/lib/db";
 import { estimateHifzRange, estimateReviewRange, isKnownSurah } from "@/lib/quran";
 import type { PageRange } from "@/lib/types";
 
@@ -97,6 +97,40 @@ export async function POST(request: Request) {
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "تعذّر حفظ الورد" },
+      { status: 400 },
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  const student = await currentStudent();
+  if (!student) return unauthorized();
+
+  try {
+    const body = (await request.json()) as Record<string, unknown>;
+
+    const id = Number(body.id);
+    if (!Number.isInteger(id)) throw new Error("معرّف السجل مفقود");
+
+    const hifz = parseHifz(body.hifz);
+    const review = parseReview(body.review);
+    if (!hifz && !review) {
+      throw new Error("سجّل حفظاً أو مراجعة على الأقل");
+    }
+
+    const date = String(body.date ?? "").trim();
+    if (!isValidDate(date)) {
+      throw new Error("التاريخ غير صحيح");
+    }
+
+    const note = String(body.note ?? "").trim().slice(0, 500);
+    if (!(await updateWard(student.id, id, { date, hifz, review, note }))) {
+      return Response.json({ error: "السجل غير موجود" }, { status: 404 });
+    }
+    return Response.json({ ok: true });
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "تعذّر تعديل الورد" },
       { status: 400 },
     );
   }

@@ -55,6 +55,25 @@ export async function linkSecret(): Promise<string> {
   return (after[0]?.value as string) ?? generated;
 }
 
+// ————— حماية التسجيل من الإساءة —————
+
+const REGISTER_LIMIT = 5;
+const REGISTER_WINDOW_MINUTES = 60;
+
+/**
+ * يسجّل محاولة تسجيل جديدة من هذا العنوان، ويرجع true لو مسموح إتمامها
+ * (أقل من REGISTER_LIMIT محاولة خلال الساعة الماضية من نفس العنوان).
+ */
+export async function checkRegisterRateLimit(ip: string): Promise<boolean> {
+  const rows = await db().sql`
+    SELECT COUNT(*) AS n FROM register_attempts
+    WHERE ip = ${ip} AND created_at > now() - (${REGISTER_WINDOW_MINUTES} || ' minutes')::interval
+  `;
+  const count = Number(rows[0]?.n ?? 0);
+  await db().sql`INSERT INTO register_attempts (ip) VALUES (${ip})`;
+  return count < REGISTER_LIMIT;
+}
+
 // ————— الطلاب —————
 
 export async function createStudent(username: string, passwordHash: string, name: string): Promise<number> {
@@ -143,6 +162,35 @@ export async function addWard(
     RETURNING id
   `;
   return Number(rows[0].id);
+}
+
+/** يعدّل سجل ورد موجود — بدل الحذف وإعادة التسجيل من الصفر */
+export async function updateWard(
+  studentId: number,
+  id: number,
+  ward: {
+    date: string;
+    hifz: { range: PageRange; surah: string; pages: number } | null;
+    review: { range: PageRange; surahs: string[]; pages: number } | null;
+    note: string;
+  },
+): Promise<boolean> {
+  const rows = await db().sql`
+    UPDATE wards SET
+      date = ${ward.date},
+      hifz_from = ${ward.hifz?.range.from ?? null},
+      hifz_to = ${ward.hifz?.range.to ?? null},
+      hifz_surah = ${ward.hifz?.surah ?? null},
+      hifz_pages = ${ward.hifz?.pages ?? null},
+      review_from = ${ward.review?.range.from ?? null},
+      review_to = ${ward.review?.range.to ?? null},
+      review_surahs = ${ward.review ? JSON.stringify(ward.review.surahs) : null},
+      review_pages = ${ward.review?.pages ?? null},
+      note = ${ward.note}
+    WHERE id = ${id} AND student_id = ${studentId}
+    RETURNING id
+  `;
+  return rows.length > 0;
 }
 
 export async function listWards(studentId: number): Promise<WardLog[]> {
