@@ -266,6 +266,34 @@ export async function listWardsOfPeer(studentId: number, peerId: number): Promis
   return listWards(peerId);
 }
 
+// ————— اقتراحات تطوير من الطلاب (تصل للمطوّر فقط) —————
+
+export type Suggestion = {
+  id: number;
+  senderLabel: string;
+  message: string;
+  createdAt: string;
+};
+
+export async function addSuggestion(senderId: number, senderLabel: string, message: string): Promise<void> {
+  await db().sql`
+    INSERT INTO suggestions (sender_id, sender_label, message, created_at)
+    VALUES (${senderId}, ${senderLabel}, ${message}, ${new Date().toISOString()})
+  `;
+}
+
+export async function listSuggestions(): Promise<Suggestion[]> {
+  const rows = await db().sql`
+    SELECT id, sender_label, message, created_at FROM suggestions ORDER BY created_at DESC
+  `;
+  return rows.map((row) => ({
+    id: row.id as number,
+    senderLabel: row.sender_label as string,
+    message: row.message as string,
+    createdAt: row.created_at as string,
+  }));
+}
+
 // ————— ملخّص للربط مع نظام المعلّم —————
 
 /**
