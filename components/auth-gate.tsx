@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, Card } from "./ui";
+import { PeerRequestBadge } from "./peer-request-badge";
 import type { Student } from "@/lib/types";
 
 const StudentContext = createContext<Student | null>(null);
@@ -67,9 +68,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             </Link>
             <Link
               href="/peers"
-              className="text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
             >
               زملاء المراجعة
+              <PeerRequestBadge />
             </Link>
             <Link
               href="/history"
@@ -203,6 +205,12 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (student: Student) =
               className={field}
             />
           </label>
+
+          {mode === "login" && (
+            <Link href="/forgot-password" className="block text-left text-xs text-primary hover:underline">
+              نسيت كلمة المرور؟
+            </Link>
+          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 

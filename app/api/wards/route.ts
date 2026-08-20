@@ -1,5 +1,24 @@
 import { currentStudent, unauthorized } from "@/lib/auth";
-import { addWard, deleteWard, listWards, updateWard } from "@/lib/db";
+import { addWard, deleteWard, linkSecret, listWards, updateWard } from "@/lib/db";
+
+/**
+ * يخبر نظام المعلّم (إن كان هذا الطالب مرتبطاً به) بورد جديد ليبعث
+ * إشعاراً فورياً — لا يفشل حفظ الورد أبداً لو تعذّر هذا النداء.
+ */
+async function notifyTeacherApp(username: string): Promise<void> {
+  const teacherAppUrl = process.env.TEACHER_APP_URL;
+  if (!teacherAppUrl) return;
+  try {
+    await fetch(`${teacherAppUrl}/api/link/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-link-secret": await linkSecret() },
+      body: JSON.stringify({ username }),
+      signal: AbortSignal.timeout(4000),
+    });
+  } catch {
+    // تجاهل — الإشعار غير حرج، والمعلّم يقدر يسحب البيانات يدوياً بأي وقت
+  }
+}
 import { estimateHifzRange, estimateReviewRange, isKnownSurah } from "@/lib/quran";
 import type { PageRange } from "@/lib/types";
 
@@ -93,6 +112,7 @@ export async function POST(request: Request) {
 
     const note = String(body.note ?? "").trim().slice(0, 500);
     const id = await addWard(student.id, { date, hifz, review, note });
+    await notifyTeacherApp(student.username);
     return Response.json({ ok: true, id });
   } catch (error) {
     return Response.json(

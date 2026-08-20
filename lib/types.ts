@@ -31,6 +31,13 @@ export type WardLog = {
   createdAt: string;
 };
 
+/** اشتراك دفع للإشعارات على جهاز الطالب */
+export type PushSubscriptionData = {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+};
+
 /** ما يُصدَّر لنظام المعلّم عبر رابط السحب — آخر حفظ وآخر مراجعة فقط */
 export type StudentSummary = {
   name: string;

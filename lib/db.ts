@@ -1,8 +1,8 @@
 import "server-only";
 
 import { getDatabase } from "@netlify/database";
-import { randomBytes } from "node:crypto";
-import type { PageRange, Student, StudentSummary, WardLog } from "./types";
+import { createHash, randomBytes } from "node:crypto";
+import type { PageRange, PushSubscriptionData, Student, StudentSummary, WardLog } from "./types";
 
 /*
   نظام مستقل تماماً عن نظام المعلّم، بقاعدة بيانات Postgres خاصة به
@@ -55,6 +55,36 @@ export async function linkSecret(): Promise<string> {
   return (after[0]?.value as string) ?? generated;
 }
 
+// ————— استرجاع كلمة المرور —————
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+/** يولّد رمزاً عشوائياً صالحاً ساعة واحدة، ويرجعه خاماً (يُرسَل بالبريد فقط) */
+export async function createPasswordReset(studentId: number): Promise<string> {
+  const token = randomBytes(32).toString("hex");
+  await db().sql`
+    INSERT INTO password_resets (student_id, token_hash, expires_at, created_at)
+    VALUES (${studentId}, ${hashToken(token)}, now() + interval '1 hour', ${new Date().toISOString()})
+  `;
+  return token;
+}
+
+/** يتحقق من الرمز ويحذفه فوراً (استخدام مرة واحدة) — يرجع معرّف الطالب أو null */
+export async function consumePasswordReset(token: string): Promise<number | null> {
+  const rows = await db().sql`
+    DELETE FROM password_resets
+    WHERE token_hash = ${hashToken(token)} AND expires_at > now()
+    RETURNING student_id
+  `;
+  return rows[0] ? Number(rows[0].student_id) : null;
+}
+
+export async function updateStudentPassword(studentId: number, passwordHash: string): Promise<void> {
+  await db().sql`UPDATE students SET password_hash = ${passwordHash} WHERE id = ${studentId}`;
+}
+
 // ————— حماية التسجيل من الإساءة —————
 
 const REGISTER_LIMIT = 5;
@@ -72,6 +102,69 @@ export async function checkRegisterRateLimit(ip: string): Promise<boolean> {
   const count = Number(rows[0]?.n ?? 0);
   await db().sql`INSERT INTO register_attempts (ip) VALUES (${ip})`;
   return count < REGISTER_LIMIT;
+}
+
+/** مفاتيح VAPID: من البيئة إن وُجدت، وإلا من الإعدادات — أو null قبل توليدها */
+export async function vapidKeys(): Promise<{ publicKey: string; privateKey: string } | null> {
+  const envPub = process.env.VAPID_PUBLIC_KEY;
+  const envPriv = process.env.VAPID_PRIVATE_KEY;
+  if (envPub && envPriv) return { publicKey: envPub, privateKey: envPriv };
+
+  const rows = await db().sql`
+    SELECT key, value FROM app_settings WHERE key IN ('vapid_public', 'vapid_private')
+  `;
+  const map = new Map(rows.map((r) => [r.key as string, r.value as string]));
+  const pub = map.get("vapid_public");
+  const priv = map.get("vapid_private");
+  return pub && priv ? { publicKey: pub, privateKey: priv } : null;
+}
+
+/** يخزّن مفاتيح VAPID المولّدة مرة واحدة حتى تثبت عبر عمليات التشغيل */
+export async function setVapidKeys(publicKey: string, privateKey: string): Promise<void> {
+  await db().sql`
+    INSERT INTO app_settings (key, value) VALUES ('vapid_public', ${publicKey})
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value
+  `;
+  await db().sql`
+    INSERT INTO app_settings (key, value) VALUES ('vapid_private', ${privateKey})
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value
+  `;
+}
+
+export async function savePushSubscription(studentId: number, sub: PushSubscriptionData): Promise<void> {
+  await db().sql`
+    INSERT INTO push_subscriptions (student_id, endpoint, p256dh, auth, created_at)
+    VALUES (${studentId}, ${sub.endpoint}, ${sub.p256dh}, ${sub.auth}, ${new Date().toISOString()})
+    ON CONFLICT (endpoint) DO UPDATE SET
+      student_id = excluded.student_id,
+      p256dh = excluded.p256dh,
+      auth = excluded.auth
+  `;
+}
+
+export async function listPushSubscriptions(studentId: number): Promise<PushSubscriptionData[]> {
+  const rows = await db().sql`
+    SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE student_id = ${studentId}
+  `;
+  return rows.map((r) => ({ endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth }));
+}
+
+export async function deletePushSubscription(endpoint: string): Promise<void> {
+  await db().sql`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`;
+}
+
+/** الطلاب المشتركين بالإشعارات اللي ما سجّلوا ورداً بتاريخ اليوم بعد — للتذكير اليومي */
+export async function listSubscribedStudentsWithoutWardOn(
+  date: string,
+): Promise<(PushSubscriptionData & { studentId: number })[]> {
+  const rows = await db().sql`
+    SELECT ps.student_id, ps.endpoint, ps.p256dh, ps.auth
+    FROM push_subscriptions ps
+    WHERE NOT EXISTS (
+      SELECT 1 FROM wards w WHERE w.student_id = ps.student_id AND w.date = ${date}
+    )
+  `;
+  return rows.map((r) => ({ studentId: r.student_id, endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth }));
 }
 
 // ————— الطلاب —————

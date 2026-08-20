@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthGate, useStudent } from "@/components/auth-gate";
 import { Badge, Button, Card, Empty } from "@/components/ui";
+import { PushToggle } from "@/components/push-toggle";
 import { SURAHS, estimateHifzRange, estimateReviewRange, juzLabel, juzesOfRange } from "@/lib/quran";
 import type { WardLog } from "@/lib/types";
 
@@ -47,6 +48,9 @@ function WardDashboard() {
       <div>
         <h1 className="font-naskh text-2xl font-bold">أهلاً {student.name}</h1>
         <p className="text-sm text-muted-foreground">سجّل ورد اليوم من الحفظ والمراجعة.</p>
+        <div className="mt-2">
+          <PushToggle />
+        </div>
       </div>
 
       <WardForm
