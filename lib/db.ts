@@ -85,6 +85,32 @@ export async function updateStudentPassword(studentId: number, passwordHash: str
   await db().sql`UPDATE students SET password_hash = ${passwordHash} WHERE id = ${studentId}`;
 }
 
+// ————— تأكيد البريد الإلكتروني —————
+
+/** يولّد رمز تأكيد صالح ٢٤ ساعة، ويرجعه خاماً (يُرسَل بالبريد فقط) */
+export async function createEmailVerification(studentId: number): Promise<string> {
+  const token = randomBytes(32).toString("hex");
+  await db().sql`
+    INSERT INTO email_verifications (student_id, token_hash, expires_at, created_at)
+    VALUES (${studentId}, ${hashToken(token)}, now() + interval '24 hours', ${new Date().toISOString()})
+  `;
+  return token;
+}
+
+/** يتحقق من الرمز ويعلّم البريد مؤكَّداً — يرجع معرّف الطالب أو null */
+export async function consumeEmailVerification(token: string): Promise<number | null> {
+  const rows = await db().sql`
+    DELETE FROM email_verifications
+    WHERE token_hash = ${hashToken(token)} AND expires_at > now()
+    RETURNING student_id
+  `;
+  const studentId = rows[0] ? Number(rows[0].student_id) : null;
+  if (studentId) {
+    await db().sql`UPDATE students SET email_verified = true WHERE id = ${studentId}`;
+  }
+  return studentId;
+}
+
 // ————— حماية التسجيل من الإساءة —————
 
 const REGISTER_LIMIT = 5;
@@ -169,22 +195,37 @@ export async function listSubscribedStudentsWithoutWardOn(
 
 // ————— الطلاب —————
 
-export async function createStudent(username: string, passwordHash: string, name: string): Promise<number> {
+export async function createStudent(
+  username: string,
+  passwordHash: string,
+  name: string,
+  emailVerified = false,
+): Promise<number> {
   const rows = await db().sql`
-    INSERT INTO students (username, password_hash, name, created_at)
-    VALUES (${username}, ${passwordHash}, ${name}, ${new Date().toISOString()})
+    INSERT INTO students (username, password_hash, name, email_verified, created_at)
+    VALUES (${username}, ${passwordHash}, ${name}, ${emailVerified}, ${new Date().toISOString()})
     RETURNING id
   `;
   return Number(rows[0].id);
 }
 
-export async function findStudentByUsername(
-  username: string,
-): Promise<{ id: number; username: string; passwordHash: string; name: string } | null> {
+export async function findStudentByUsername(username: string): Promise<{
+  id: number;
+  username: string;
+  passwordHash: string;
+  name: string;
+  emailVerified: boolean;
+} | null> {
   const rows = await db().sql`SELECT * FROM students WHERE username = ${username}`;
   const row = rows[0];
   if (!row) return null;
-  return { id: row.id, username: row.username, passwordHash: row.password_hash, name: row.name };
+  return {
+    id: row.id,
+    username: row.username,
+    passwordHash: row.password_hash,
+    name: row.name,
+    emailVerified: !!row.email_verified,
+  };
 }
 
 /**
@@ -196,16 +237,23 @@ export async function findOrCreateStudentByEmail(email: string, name: string): P
   if (existing) return existing.id;
 
   const randomPasswordHash = randomBytes(32).toString("hex");
-  return createStudent(email, randomPasswordHash, name);
+  // بريد جوجل موثّق من جوجل نفسها — نعتبره مؤكَّداً هنا فوراً
+  return createStudent(email, randomPasswordHash, name, true);
 }
 
 export async function findStudentById(id: number): Promise<Student | null> {
   const rows = await db().sql`
-    SELECT id, username, name, created_at FROM students WHERE id = ${id}
+    SELECT id, username, name, created_at, email_verified FROM students WHERE id = ${id}
   `;
   const row = rows[0];
   return row
-    ? { id: row.id, username: row.username, name: row.name, createdAt: row.created_at }
+    ? {
+        id: row.id,
+        username: row.username,
+        name: row.name,
+        createdAt: row.created_at,
+        emailVerified: !!row.email_verified,
+      }
     : null;
 }
 

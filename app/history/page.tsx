@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { Card, Empty, Stat } from "@/components/ui";
-import { monthKey, monthLabel } from "@/lib/dates";
+import { monthLabel, summarizeByMonth } from "@/lib/dates";
 import type { WardLog } from "@/lib/types";
 
 export default function HistoryPage() {
@@ -12,43 +12,6 @@ export default function HistoryPage() {
       <HistoryDashboard />
     </AuthGate>
   );
-}
-
-type MonthSummary = {
-  key: string;
-  hifzPages: number;
-  reviewPages: number;
-  hifzDays: number;
-  reviewDays: number;
-  activeDays: number;
-};
-
-function summarizeByMonth(wards: WardLog[]): MonthSummary[] {
-  const byMonth = new Map<string, MonthSummary>();
-
-  for (const ward of wards) {
-    const key = monthKey(ward.date);
-    const entry = byMonth.get(key) ?? {
-      key,
-      hifzPages: 0,
-      reviewPages: 0,
-      hifzDays: 0,
-      reviewDays: 0,
-      activeDays: 0,
-    };
-    if (ward.hifzPages) {
-      entry.hifzPages += ward.hifzPages;
-      entry.hifzDays += 1;
-    }
-    if (ward.reviewPages) {
-      entry.reviewPages += ward.reviewPages;
-      entry.reviewDays += 1;
-    }
-    entry.activeDays += 1;
-    byMonth.set(key, entry);
-  }
-
-  return [...byMonth.values()].sort((a, b) => (a.key < b.key ? 1 : -1));
 }
 
 function HistoryDashboard() {

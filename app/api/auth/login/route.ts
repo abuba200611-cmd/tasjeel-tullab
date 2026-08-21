@@ -13,5 +13,12 @@ export async function POST(request: Request) {
   }
 
   await setSessionCookie(student.id);
-  return Response.json({ student: { id: student.id, username: student.username, name: student.name } });
+  return Response.json({
+    student: {
+      id: student.id,
+      username: student.username,
+      name: student.name,
+      emailVerified: student.emailVerified,
+    },
+  });
 }

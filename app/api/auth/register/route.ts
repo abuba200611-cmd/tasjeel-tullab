@@ -1,5 +1,6 @@
-import { checkRegisterRateLimit, createStudent, findStudentByUsername } from "@/lib/db";
+import { checkRegisterRateLimit, createEmailVerification, createStudent, findStudentByUsername } from "@/lib/db";
 import { hashPassword, setSessionCookie } from "@/lib/auth";
+import { sendMail } from "@/lib/mail";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي */
 function clientIp(request: Request): string {
@@ -37,5 +38,14 @@ export async function POST(request: Request) {
   const id = await createStudent(username, hashPassword(password), name);
   await setSessionCookie(id);
 
-  return Response.json({ student: { id, username, name } });
+  const token = await createEmailVerification(id);
+  const origin = new URL(request.url).origin;
+  const link = `${origin}/verify-email?token=${token}`;
+  await sendMail(
+    username,
+    "أكّد بريدك — ورد الطالب",
+    `<div dir="rtl" style="font-family:sans-serif"><p>أهلاً ${name}، أكمل تسجيلك بتأكيد بريدك.</p><p><a href="${link}">اضغط هنا لتأكيد البريد</a> (صالح ٢٤ ساعة).</p></div>`,
+  );
+
+  return Response.json({ student: { id, username, name, emailVerified: false } });
 }

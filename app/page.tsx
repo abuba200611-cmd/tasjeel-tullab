@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthGate, useStudent } from "@/components/auth-gate";
 import { Badge, Button, Card, Empty } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
+import { currentStreak, todayISO } from "@/lib/dates";
 import { SURAHS, estimateHifzRange, estimateReviewRange, juzLabel, juzesOfRange } from "@/lib/quran";
 import type { WardLog } from "@/lib/types";
 
@@ -13,13 +14,6 @@ export default function Page() {
       <WardDashboard />
     </AuthGate>
   );
-}
-
-/** تاريخ اليوم بصيغة YYYY-MM-DD بالتوقيت المحلي */
-function todayISO(): string {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
 function WardDashboard() {
@@ -46,7 +40,10 @@ function WardDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-naskh text-2xl font-bold">أهلاً {student.name}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-naskh text-2xl font-bold">أهلاً {student.name}</h1>
+          <StreakBadge wards={wards} />
+        </div>
         <p className="text-sm text-muted-foreground">سجّل ورد اليوم من الحفظ والمراجعة.</p>
         <div className="mt-2">
           <PushToggle />
@@ -78,6 +75,17 @@ function WardDashboard() {
         )}
       </section>
     </div>
+  );
+}
+
+/** عدد الأيام المتتالية اللي سجّل فيها الطالب وِرداً — يظهر بس لو ٢ فأكثر */
+function StreakBadge({ wards }: { wards: WardLog[] }) {
+  const streak = useMemo(() => currentStreak(wards.map((w) => w.date)), [wards]);
+  if (streak < 2) return null;
+  return (
+    <Badge tone="good">
+      🔥 {streak} يوم متتالي
+    </Badge>
   );
 }
 

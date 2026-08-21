@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
-import { Badge, Button, Card, Empty } from "@/components/ui";
-import { juzLabel, juzesOfRange } from "@/lib/quran";
+import { Badge, Button, Card, Empty, Stat } from "@/components/ui";
+import { monthLabel, summarizeByMonth } from "@/lib/dates";
 import type { WardLog } from "@/lib/types";
 
 type PeerLinkRow = {
@@ -310,31 +310,21 @@ function PeerWards({ peerId }: { peerId: number }) {
   if (!wards) return <p className="mt-3 text-sm text-muted-foreground">جارٍ التحميل…</p>;
   if (wards.length === 0) return <p className="mt-3 text-sm text-muted-foreground">ما سجّل وِرداً بعد.</p>;
 
+  const months = summarizeByMonth(wards);
+
   return (
-    <ul className="mt-3 space-y-1.5 border-t border-border pt-3">
-      {wards.map((ward) => {
-        const hifzJuz = ward.hifz ? juzLabel(juzesOfRange(ward.hifz.from, ward.hifz.to)) : null;
-        const reviewJuz = ward.review ? juzLabel(juzesOfRange(ward.review.from, ward.review.to)) : null;
-        return (
-          <li key={ward.id} className="text-sm">
-            <span className="tabular font-semibold">{ward.date}</span>
-            {ward.hifz && (
-              <span className="mr-2 text-muted-foreground">
-                <Badge tone="good">حفظ</Badge>{" "}
-                {ward.hifzSurah ? `سورة ${ward.hifzSurah}` : hifzJuz}
-                {ward.hifzPages ? ` · ${ward.hifzPages} صفحة` : ""}
-              </span>
-            )}
-            {ward.review && (
-              <span className="mr-2 text-muted-foreground">
-                <Badge tone="neutral">مراجعة</Badge>{" "}
-                {ward.reviewSurahs.length > 0 ? ward.reviewSurahs.join("، ") : reviewJuz}
-                {ward.reviewPages ? ` · ${ward.reviewPages} صفحة` : ""}
-              </span>
-            )}
-          </li>
-        );
-      })}
+    <ul className="mt-3 space-y-2 border-t border-border pt-3">
+      {months.map((month) => (
+        <li key={month.key}>
+          <p className="mb-1.5 text-sm font-semibold">{monthLabel(month.key)}</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Stat label="صفحات الحفظ" value={month.hifzPages} hint={`${month.hifzDays} يوم`} />
+            <Stat label="صفحات المراجعة" value={month.reviewPages} hint={`${month.reviewDays} يوم`} />
+            <Stat label="مجموع الصفحات" value={month.hifzPages + month.reviewPages} />
+            <Stat label="أيام نشطة" value={month.activeDays} />
+          </div>
+        </li>
+      ))}
     </ul>
   );
 }

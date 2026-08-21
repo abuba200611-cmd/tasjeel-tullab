@@ -4,6 +4,7 @@ export type Student = {
   username: string;
   name: string;
   createdAt: string;
+  emailVerified: boolean;
 };
 
 /** نطاق صفحات في المصحف */

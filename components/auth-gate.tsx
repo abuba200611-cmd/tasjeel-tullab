@@ -94,8 +94,42 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      {!student.emailVerified && <VerifyEmailBanner />}
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">{children}</main>
     </StudentContext.Provider>
+  );
+}
+
+/** شريط تذكير بتأكيد البريد — يظهر فقط لمن سجّل ببريد/كلمة مرور ولم يؤكّد بعد */
+function VerifyEmailBanner() {
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function resend() {
+    setBusy(true);
+    try {
+      await fetch("/api/auth/resend-verification", { method: "POST" });
+      setSent(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="border-b border-accent/30 bg-accent/5 px-4 py-2 text-center text-sm text-accent">
+      لم تؤكّد بريدك الإلكتروني بعد.{" "}
+      {sent ? (
+        "أُعيد الإرسال ✓ تفقّد بريدك."
+      ) : (
+        <button
+          onClick={resend}
+          disabled={busy}
+          className="cursor-pointer font-semibold underline hover:no-underline disabled:cursor-not-allowed"
+        >
+          {busy ? "لحظة…" : "أعد إرسال رابط التأكيد"}
+        </button>
+      )}
+    </div>
   );
 }
 
