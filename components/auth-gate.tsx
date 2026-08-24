@@ -83,7 +83,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               href="/suggest"
               className="text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
             >
-              اقتراح تطوير
+اقتراح / بلاغ
             </Link>
           </div>
           <div className="flex items-center gap-3">
