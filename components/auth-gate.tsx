@@ -61,37 +61,39 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <StudentContext.Provider value={student}>
       <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="font-naskh text-lg font-bold text-primary">
+        <div className="mx-auto max-w-2xl px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="shrink-0 font-naskh text-lg font-bold text-primary">
               ورد الطالب
             </Link>
+            <div className="mr-auto flex min-w-0 items-center gap-3">
+              <span className="hidden truncate text-sm text-muted-foreground sm:inline">{student.name}</span>
+              <Button variant="ghost" onClick={logout} className="shrink-0">
+                خروج
+              </Button>
+            </div>
+          </div>
+          <nav className="no-scrollbar -mx-1 mt-2 flex gap-1 overflow-x-auto px-1">
             <Link
               href="/peers"
-              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
             >
               زملاء المراجعة
               <PeerRequestBadge />
             </Link>
             <Link
               href="/history"
-              className="text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
+              className="shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
             >
               السجلّ الشهري
             </Link>
             <Link
               href="/suggest"
-              className="text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
+              className="shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
             >
-اقتراح / بلاغ
+              اقتراح / بلاغ
             </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{student.name}</span>
-            <Button variant="ghost" onClick={logout}>
-              خروج
-            </Button>
-          </div>
+          </nav>
         </div>
       </header>
       {!student.emailVerified && <VerifyEmailBanner />}
