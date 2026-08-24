@@ -151,8 +151,14 @@ function VerifyEmailBanner() {
 }
 
 function AuthScreen({ onAuthenticated }: { onAuthenticated: (student: Student) => void }) {
+  // رابط دعوة حلقة (?invite=رمز) — يفرض وضع "حساب جديد" فوراً بغض النظر
+  // عن العلامة المحفوظة، لأن نية الزائر هنا واضحة: ينضم لحلقة معلّم.
+  const [inviteCode] = useState<string>(() =>
+    typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("invite") ?? "",
+  );
   const [mode, setMode] = useState<"login" | "register">(() => {
     if (typeof window === "undefined") return "register";
+    if (new URLSearchParams(window.location.search).get("invite")) return "register";
     try {
       return window.localStorage.getItem(KNOWN_ACCOUNT_KEY) ? "login" : "register";
     } catch {
@@ -166,6 +172,19 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (student: Student) =
     typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("googleError"),
   );
   const [busy, setBusy] = useState(false);
+  const [inviteHalaqah, setInviteHalaqah] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!inviteCode) return;
+    fetch(`/api/invite-info?code=${encodeURIComponent(inviteCode)}`)
+      .then((res) => res.json())
+      .then((data: { ok?: boolean; halaqahName?: string; teacherName?: string }) => {
+        if (data.ok && data.halaqahName) {
+          setInviteHalaqah(data.teacherName ? `${data.halaqahName} — ${data.teacherName}` : data.halaqahName);
+        }
+      })
+      .catch(() => {});
+  }, [inviteCode]);
 
   useEffect(() => {
     if (error) window.history.replaceState(null, "", window.location.pathname);
@@ -179,7 +198,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (student: Student) =
       const res = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, username, password }),
+        body: JSON.stringify({ name, username, password, inviteCode: mode === "register" ? inviteCode : undefined }),
       });
       const data = (await res.json()) as { student?: Student; error?: string };
       if (!res.ok || !data.student) {
@@ -206,6 +225,12 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (student: Student) =
       </p>
 
       <Card className="p-5">
+        {inviteCode && inviteHalaqah && (
+          <p className="mb-4 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-center text-sm text-primary">
+            ستنضم إلى: <span className="font-semibold">{inviteHalaqah}</span>
+          </p>
+        )}
+
         <h2 className="mb-4 text-center text-base font-semibold text-foreground">
           {mode === "register" ? "إنشاء حساب جديد" : "تسجيل الدخول"}
         </h2>
