@@ -8,6 +8,20 @@ import type { Student } from "@/lib/types";
 
 const StudentContext = createContext<Student | null>(null);
 
+/*
+  أول زيارة، الجهاز ما عنده حساب بعد — عرض تبويب "تسجيل الدخول" مربك (يطلب
+  دخول لحساب مو موجود). نتذكّر بمتصفّح الجهاز إذا سبق أنشأ/سجّل دخول حساب،
+  ونعرض النمط المناسب افتراضياً بدل تبويبين متساويين من البداية.
+*/
+const KNOWN_ACCOUNT_KEY = "tasjeel_known_account";
+function markAccountKnown() {
+  try {
+    window.localStorage.setItem(KNOWN_ACCOUNT_KEY, "1");
+  } catch {
+    // localStorage قد يكون معطّلاً (وضع خاص) — لا يوقف تسجيل الدخول
+  }
+}
+
 /** الطالب صاحب الجلسة الحالية داخل الصفحات المحمية */
 export function useStudent(): Student {
   const student = useContext(StudentContext);
@@ -29,6 +43,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       .then((res) => res.json())
       .then((data: { student: Student | null }) => {
         if (!cancelled) setStudent(data.student);
+        if (data.student) markAccountKnown();
       })
       .catch(() => {
         if (!cancelled) setStudent(null);
@@ -136,7 +151,14 @@ function VerifyEmailBanner() {
 }
 
 function AuthScreen({ onAuthenticated }: { onAuthenticated: (student: Student) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("register");
+  const [mode, setMode] = useState<"login" | "register">(() => {
+    if (typeof window === "undefined") return "register";
+    try {
+      return window.localStorage.getItem(KNOWN_ACCOUNT_KEY) ? "login" : "register";
+    } catch {
+      return "register";
+    }
+  });
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -164,6 +186,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (student: Student) =
         setError(data.error ?? "تعذّر إتمام العملية");
         return;
       }
+      markAccountKnown();
       onAuthenticated(data.student);
     } catch {
       setError("تعذّر الاتصال بالخادم");
@@ -183,25 +206,9 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (student: Student) =
       </p>
 
       <Card className="p-5">
-        <div className="mb-4 flex gap-1 border-b border-border">
-          {(["register", "login"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => {
-                setMode(value);
-                setError(null);
-              }}
-              className={`-mb-px cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors duration-200 ${
-                mode === value
-                  ? "border-primary font-semibold text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {value === "register" ? "حساب جديد" : "تسجيل الدخول"}
-            </button>
-          ))}
-        </div>
+        <h2 className="mb-4 text-center text-base font-semibold text-foreground">
+          {mode === "register" ? "إنشاء حساب جديد" : "تسجيل الدخول"}
+        </h2>
 
         <form onSubmit={submit} className="space-y-3">
           {mode === "register" && (
@@ -268,6 +275,38 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (student: Student) =
           <GoogleIcon />
           الدخول بحساب جوجل
         </a>
+
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          {mode === "register" ? (
+            <>
+              عندك حساب مسبقاً؟{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setError(null);
+                }}
+                className="cursor-pointer font-semibold text-primary hover:underline"
+              >
+                سجّل دخولك
+              </button>
+            </>
+          ) : (
+            <>
+              ما عندك حساب؟{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("register");
+                  setError(null);
+                }}
+                className="cursor-pointer font-semibold text-primary hover:underline"
+              >
+                أنشئ حساب جديد
+              </button>
+            </>
+          )}
+        </p>
       </Card>
     </main>
   );
