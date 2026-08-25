@@ -5,6 +5,7 @@ import { AuthGate, useStudent } from "@/components/auth-gate";
 import { Badge, Button, Card, Empty } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
 import { currentStreak, todayISO } from "@/lib/dates";
+import { toHijriLabel } from "@/lib/hijri";
 import { SURAHS, estimateHifzRange, estimateReviewRange, juzLabel, juzesOfRange } from "@/lib/quran";
 import type { WardLog } from "@/lib/types";
 
@@ -317,6 +318,7 @@ function WardForm({
             required
             className={`${fieldClass} tabular`}
           />
+          {date && <p className="mt-1 text-xs text-muted-foreground">{toHijriLabel(date)}</p>}
         </label>
 
         <HifzField surah={hifzSurah} pages={hifzPages} onSurahChange={setHifzSurah} onPagesChange={setHifzPages} />
