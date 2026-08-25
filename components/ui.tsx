@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-lg border border-border bg-surface ${className}`}>{children}</div>
+    <div className={`rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(19,78,74,0.04)] ${className}`}>
+      {children}
+    </div>
   );
 }
 
@@ -30,7 +32,7 @@ export function Button({ variant = "primary", className = "", ...props }: Button
   return (
     <button
       {...props}
-      className={`cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50 ${styles} ${className}`}
+      className={`cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50 ${styles} ${className}`}
     />
   );
 }
@@ -42,7 +44,7 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
     warn: "bg-accent/10 text-accent",
   }[tone];
   return (
-    <span className={`tabular inline-block rounded px-1.5 py-0.5 text-xs font-medium ${styles}`}>
+    <span className={`tabular inline-block rounded-full px-2 py-0.5 text-xs font-medium ${styles}`}>
       {children}
     </span>
   );
@@ -54,5 +56,17 @@ export function Empty({ title, action }: { title: string; action?: ReactNode }) 
       <p className="text-sm text-muted-foreground">{title}</p>
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </Card>
+  );
+}
+
+/** رأس قسم صغير بأيقونة ملوّنة — يستبدل legend/fieldset الصريح بمظهر أقرب لتطبيق حقيقي */
+export function SectionHeading({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        {icon}
+      </span>
+      <span className="text-sm font-semibold text-foreground">{children}</span>
+    </div>
   );
 }

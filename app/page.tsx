@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthGate, useStudent } from "@/components/auth-gate";
-import { Badge, Button, Card, Empty } from "@/components/ui";
+import { Badge, Button, Card, Empty, SectionHeading } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
+import { BookIcon, CalendarIcon, NoteIcon, RepeatIcon } from "@/components/icons";
 import { currentStreak, todayISO } from "@/lib/dates";
 import { toHijriLabel } from "@/lib/hijri";
 import { SURAHS, estimateHifzRange, estimateReviewRange, juzLabel, juzesOfRange } from "@/lib/quran";
@@ -91,7 +92,7 @@ function StreakBadge({ wards }: { wards: WardLog[] }) {
 }
 
 const fieldClass =
-  "mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  "mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 /** حفظ اليوم: سورة واحدة + عدد صفحات — الطالب لا يحتاج يعرف أرقام الصفحات */
 function HifzField({
@@ -115,8 +116,8 @@ function HifzField({
       : "";
 
   return (
-    <fieldset className="rounded-md border border-border p-3">
-      <legend className="px-1 text-xs font-semibold text-primary">الحفظ الجديد</legend>
+    <div className="rounded-2xl bg-background p-3.5">
+      <SectionHeading icon={<BookIcon />}>الحفظ الجديد</SectionHeading>
       <div className="flex gap-3">
         <label className="flex-[2] text-sm">
           <span className="text-xs text-muted-foreground">السورة</span>
@@ -142,7 +143,7 @@ function HifzField({
         </label>
       </div>
       {preview && <p className="mt-1.5 text-xs text-muted-foreground">{preview}</p>}
-    </fieldset>
+    </div>
   );
 }
 
@@ -177,8 +178,8 @@ function ReviewField({
   const preview = range ? juzLabel(juzesOfRange(range.from, range.to)) : "";
 
   return (
-    <fieldset className="rounded-md border border-border p-3">
-      <legend className="px-1 text-xs font-semibold text-primary">المراجعة</legend>
+    <div className="rounded-2xl bg-background p-3.5">
+      <SectionHeading icon={<RepeatIcon />}>المراجعة</SectionHeading>
 
       {selected.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
@@ -233,7 +234,7 @@ function ReviewField({
         />
       </label>
       {preview && <p className="mt-1.5 text-xs text-muted-foreground">{preview}</p>}
-    </fieldset>
+    </div>
   );
 }
 
@@ -295,9 +296,9 @@ function WardForm({
   }
 
   return (
-    <Card className="p-4">
+    <Card className="p-5">
       {editing && (
-        <div className="mb-3 flex items-center justify-between rounded-md bg-accent/10 px-3 py-1.5 text-xs text-accent">
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-accent/10 px-3 py-1.5 text-xs text-accent">
           <span>تعديل سجل {editing.date}</span>
           <button
             type="button"
@@ -308,18 +309,18 @@ function WardForm({
           </button>
         </div>
       )}
-      <form onSubmit={submit} className="space-y-3">
-        <label className="block text-sm">
-          <span className="text-xs text-muted-foreground">التاريخ</span>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="rounded-2xl bg-background p-3.5">
+          <SectionHeading icon={<CalendarIcon />}>التاريخ</SectionHeading>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             required
-            className={`${fieldClass} tabular`}
+            className={`${fieldClass} mt-0 tabular`}
           />
-          {date && <p className="mt-1 text-xs text-muted-foreground">{toHijriLabel(date)}</p>}
-        </label>
+          {date && <p className="mt-1.5 text-xs text-muted-foreground">{toHijriLabel(date)}</p>}
+        </div>
 
         <HifzField surah={hifzSurah} pages={hifzPages} onSurahChange={setHifzSurah} onPagesChange={setHifzPages} />
         <ReviewField
@@ -329,16 +330,16 @@ function WardForm({
           onPagesChange={setReviewPages}
         />
 
-        <label className="block text-sm">
-          <span className="text-xs text-muted-foreground">ملاحظة (اختياري)</span>
+        <div className="rounded-2xl bg-background p-3.5">
+          <SectionHeading icon={<NoteIcon />}>ملاحظة (اختياري)</SectionHeading>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
             maxLength={500}
-            className={fieldClass}
+            className={`${fieldClass} mt-0`}
           />
-        </label>
+        </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {saved && <p className="text-sm text-success">{editing ? "تم حفظ التعديل ✓" : "تم تسجيل الورد ✓"}</p>}
